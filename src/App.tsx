@@ -1,26 +1,22 @@
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Navbar from "./components/Navbar";
+import Home from "./pages/Home";
 import Report from "./pages/Report";
+import Dashboard from "./pages/Dashboard";
+import MapView from "./pages/MapView";
+
 
 function App() {
   return (
     <BrowserRouter>
-      <div style={{ padding: "20px" }}>
-        {/* NAVBAR */}
-        <nav style={{ marginBottom: "20px" }}>
-          <Link to="/" style={{ marginRight: "15px" }}>
-            Home
-          </Link>
-          <Link to="/report">
-            Report Incident
-          </Link>
-        </nav>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/report" element={<Report />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/map" element={<MapView />} />
 
-        {/* ROUTES */}
-        <Routes>
-          <Route path="/" element={<h1>Sentra Home</h1>} />
-          <Route path="/report" element={<Report />} />
-        </Routes>
-      </div>
+      </Routes>
     </BrowserRouter>
   );
 }
