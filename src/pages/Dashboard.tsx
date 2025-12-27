@@ -1,164 +1,139 @@
 import { useEffect, useState } from "react";
-import { db } from "../services/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
-import { updateIncidentStatus } from "../services/incidents.service";
+import { db } from "../services/firebase";
+import {
+  updateIncidentStatus,
+  verifyViaSensor,
+} from "../services/incidents.service";
+import { calculatePriorityWithReasons } from "../utils/priority";
 
 interface Incident {
   id: string;
   type: string;
   severity: "Low" | "Medium" | "Critical";
   status: "Reported" | "Verified" | "Assigned" | "Resolved";
+  createdAt: any;
+  location: { lat: number; lng: number };
+  sensorVerified?: boolean;
 }
 
 function Dashboard() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
-    return onSnapshot(collection(db, "incidents"), (snapshot) => {
-      const data = snapshot.docs.map((doc) => {
-        const d = doc.data() as Omit<Incident, "id">;
-        return { id: doc.id, ...d };
-      });
-      setIncidents(data);
+    return onSnapshot(collection(db, "incidents"), (snap) => {
+      setIncidents(
+        snap.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as Omit<Incident, "id">),
+        }))
+      );
     });
   }, []);
 
-  const total = incidents.length;
-  const critical = incidents.filter(i => i.severity === "Critical").length;
-  const active = incidents.filter(i => i.status !== "Resolved").length;
+  const enriched = incidents.map((i) => {
+    const result = calculatePriorityWithReasons(
+      i.severity,
+      i.status,
+      i.createdAt,
+      i.sensorVerified
+    );
+    return { ...i, priority: result.score, reasons: result.reasons };
+  });
+
+  const sorted = [...enriched].sort((a, b) => b.priority - a.priority);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <h1 className="text-3xl font-bold mb-8">🚑 Responder Dashboard</h1>
+      <h1 className="text-3xl font-bold mb-6">
+        🧠 Explainable Emergency Dashboard
+      </h1>
 
-      {/* STATS */}
-      <div className="grid md:grid-cols-3 gap-6 mb-10">
-        <StatCard title="Total Incidents" value={total} color="blue" />
-        <StatCard title="Critical" value={critical} color="red" />
-        <StatCard title="Active" value={active} color="yellow" />
-      </div>
-
-      {/* TABLE */}
       <div className="bg-white rounded-xl shadow overflow-hidden">
-        <table className="w-full">
+        <table className="w-full text-left">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-4 text-left">Type</th>
-              <th className="p-4 text-left">Severity</th>
-              <th className="p-4 text-left">Status</th>
-              <th className="p-4 text-left">Actions</th>
+              <th className="p-4">Type</th>
+              <th className="p-4">Severity</th>
+              <th className="p-4">Status</th>
+              <th className="p-4">Priority</th>
+              <th className="p-4">Explain</th>
+              <th className="p-4">Actions</th>
             </tr>
           </thead>
 
           <tbody>
-            {incidents.map((i) => (
-              <tr key={i.id} className="border-t">
-                <td className="p-4">{i.type}</td>
-                <td className="p-4">
-                  <SeverityBadge severity={i.severity} />
-                </td>
-                <td className="p-4">{i.status}</td>
-                <td className="p-4 flex gap-2">
-                  {i.status === "Reported" && (
-                    <ActionButton
-                      label="Verify"
-                      color="blue"
+            {sorted.map((i) => (
+              <>
+                <tr key={i.id} className="border-t hover:bg-gray-50">
+                  <td className="p-4 font-medium">{i.type}</td>
+                  <td className="p-4">{i.severity}</td>
+                  <td className="p-4">{i.status}</td>
+                  <td className="p-4 font-semibold text-purple-700">
+                    {i.priority}
+                  </td>
+                  <td className="p-4">
+                    <button
                       onClick={() =>
-                        updateIncidentStatus(i.id, "Verified")
+                        setExpandedId(expandedId === i.id ? null : i.id)
                       }
-                    />
-                  )}
-                  {i.status === "Verified" && (
-                    <ActionButton
-                      label="Assign"
-                      color="yellow"
-                      onClick={() =>
-                        updateIncidentStatus(i.id, "Assigned")
-                      }
-                    />
-                  )}
-                  {i.status !== "Resolved" && (
-                    <ActionButton
-                      label="Resolve"
-                      color="green"
-                      onClick={() =>
-                        updateIncidentStatus(i.id, "Resolved")
-                      }
-                    />
-                  )}
+                      className="text-blue-600 hover:underline text-sm"
+                    >
+                      Why?
+                    </button>
+                  </td>
+                  <td className="p-4 flex gap-2">
+                    {!i.sensorVerified && i.type === "Smog" && (
+                      <button
+                        onClick={() => verifyViaSensor(i.id)}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Simulate IR
+                      </button>
+                    )}
+
+                    {i.status !== "Resolved" && (
+                      <button
+                        onClick={() =>
+                          updateIncidentStatus(i.id, "Resolved")
+                        }
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Resolve
+                      </button>
+                    )}
+                  </td>
+                </tr>
+
+                {expandedId === i.id && (
+                  <tr className="bg-gray-50">
+                    <td colSpan={6} className="p-4">
+                      <ul className="list-disc ml-6 text-sm text-gray-700">
+                        {i.reasons.map((r, idx) => (
+                          <li key={idx}>{r}</li>
+                        ))}
+                      </ul>
+                    </td>
+                  </tr>
+                )}
+              </>
+            ))}
+
+            {sorted.length === 0 && (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="p-6 text-center text-gray-500"
+                >
+                  No incidents available
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
     </div>
-  );
-}
-
-/* ---------------- COMPONENTS ---------------- */
-
-function StatCard({
-  title,
-  value,
-  color,
-}: {
-  title: string;
-  value: number;
-  color: "red" | "blue" | "yellow";
-}) {
-  const map = {
-    red: "bg-red-100 text-red-700",
-    blue: "bg-blue-100 text-blue-700",
-    yellow: "bg-yellow-100 text-yellow-700",
-  };
-
-  return (
-    <div className="bg-white rounded-xl shadow p-6">
-      <p className="text-sm text-gray-500 mb-2">{title}</p>
-      <p className={`text-3xl font-bold px-4 py-2 rounded-lg inline-block ${map[color]}`}>
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function SeverityBadge({ severity }: { severity: Incident["severity"] }) {
-  const map = {
-    Low: "bg-green-100 text-green-700",
-    Medium: "bg-yellow-100 text-yellow-700",
-    Critical: "bg-red-100 text-red-700",
-  };
-
-  return (
-    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${map[severity]}`}>
-      {severity}
-    </span>
-  );
-}
-
-function ActionButton({
-  label,
-  color,
-  onClick,
-}: {
-  label: string;
-  color: "blue" | "yellow" | "green";
-  onClick: () => void;
-}) {
-  const map = {
-    blue: "bg-blue-600 hover:bg-blue-700",
-    yellow: "bg-yellow-600 hover:bg-yellow-700",
-    green: "bg-green-600 hover:bg-green-700",
-  };
-
-  return (
-    <button
-      onClick={onClick}
-      className={`${map[color]} text-white px-3 py-1 rounded text-sm`}
-    >
-      {label}
-    </button>
   );
 }
 

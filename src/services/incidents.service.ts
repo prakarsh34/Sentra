@@ -2,7 +2,7 @@ import { db } from "./firebase";
 import { collection, addDoc, doc, updateDoc } from "firebase/firestore";
 
 /* =========================
-   CREATE INCIDENT (Citizen)
+   CREATE INCIDENT
 ========================= */
 export const createIncident = async (incident: {
   type: string;
@@ -13,18 +13,32 @@ export const createIncident = async (incident: {
     lng: number;
   };
   createdAt: Date;
+  sensorVerified?: boolean;
+  verificationSource?: "IR_CAMERA" | "MANUAL";
 }) => {
-  const ref = collection(db, "incidents");
-  await addDoc(ref, incident);
+  await addDoc(collection(db, "incidents"), {
+    ...incident,
+    sensorVerified: false,
+  });
 };
 
 /* =========================
-   UPDATE INCIDENT STATUS (Responder)
+   UPDATE STATUS
 ========================= */
 export const updateIncidentStatus = async (
   id: string,
   status: "Reported" | "Verified" | "Assigned" | "Resolved"
 ) => {
-  const ref = doc(db, "incidents", id);
-  await updateDoc(ref, { status });
+  await updateDoc(doc(db, "incidents", id), { status });
+};
+
+/* =========================
+   VERIFY VIA SENSOR
+========================= */
+export const verifyViaSensor = async (id: string) => {
+  await updateDoc(doc(db, "incidents", id), {
+    sensorVerified: true,
+    verificationSource: "IR_CAMERA",
+    status: "Verified",
+  });
 };

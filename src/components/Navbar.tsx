@@ -1,7 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
+import { useRole } from "../context/RoleContext";
 
 function Navbar() {
   const { pathname } = useLocation();
+  const { role, setRole } = useRole();
 
   const linkClass = (path: string) =>
     `px-4 py-2 rounded-md text-sm font-semibold transition ${
@@ -16,12 +18,38 @@ function Navbar() {
         <div className="text-2xl font-bold text-red-600">
           🚨 Sentra
         </div>
-        <nav className="flex gap-3">
-          <Link to="/" className={linkClass("/")}>Home</Link>
-          <Link to="/report" className={linkClass("/report")}>Report</Link>
-          <Link to="/dashboard" className={linkClass("/dashboard")}>Dashboard</Link>
-          <Link to="/map" className={linkClass("/map")}>Map</Link>
 
+        <nav className="flex items-center gap-3">
+          <Link to="/" className={linkClass("/")}>Home</Link>
+
+          {role === "citizen" && (
+            <Link to="/report" className={linkClass("/report")}>
+              Report
+            </Link>
+          )}
+
+          {role === "responder" && (
+            <>
+              <Link to="/dashboard" className={linkClass("/dashboard")}>
+                Dashboard
+              </Link>
+              <Link to="/map" className={linkClass("/map")}>
+                Map
+              </Link>
+            </>
+          )}
+
+          {/* ROLE SWITCH (DEMO ONLY) */}
+          <select
+            value={role}
+            onChange={(e) =>
+              setRole(e.target.value as "citizen" | "responder")
+            }
+            className="ml-4 border rounded px-2 py-1 text-sm"
+          >
+            <option value="citizen">Citizen</option>
+            <option value="responder">Responder</option>
+          </select>
         </nav>
       </div>
     </header>
