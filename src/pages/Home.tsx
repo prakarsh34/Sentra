@@ -1,17 +1,22 @@
 import { Link } from "react-router-dom";
+import { useRole } from "../context/RoleContext";
 
 function Home() {
+  const { setRole } = useRole();
+
   return (
     <main className="bg-[#020617] text-slate-100 overflow-x-hidden">
 
       {/* ================= HERO : SPLIT CAVITY ================= */}
       <section className="min-h-screen relative flex items-center overflow-hidden">
         {/* MOVING DEPTH BACKGROUND */}
-        <div className="
-          absolute inset-0
-          bg-gradient-to-br from-indigo-900 via-slate-900 to-black
-          animate-gradient
-        " />
+        <div
+          className="
+            absolute inset-0
+            bg-gradient-to-br from-indigo-900 via-slate-900 to-black
+            animate-gradient
+          "
+        />
 
         {/* WHITE CAVITY */}
         <div className="absolute right-[-25%] top-[-15%] w-[900px] h-[900px] rounded-full bg-white shadow-[inset_0_0_120px_rgba(0,0,0,0.25)]" />
@@ -41,19 +46,23 @@ function Home() {
             </p>
 
             <div className="flex gap-6 animate-text-in animate-delay-4">
+              {/* FORCE CITIZEN MODE */}
               <Link
                 to="/report"
+                onClick={() => setRole("citizen")}
                 className="px-8 py-4 rounded-full bg-teal-500 text-slate-900 font-medium hover:bg-teal-400 transition"
               >
                 Report an Incident
               </Link>
 
-              <Link
-                to="/dashboard"
-                className="px-8 py-4 rounded-full border border-slate-500 text-slate-200 hover:bg-white/5 transition"
-              >
-                Operations View
-              </Link>
+             <Link
+  to="/operations"
+  onClick={() => setRole("responder")}
+  className="px-8 py-4 rounded-full border border-slate-500 text-slate-200 hover:bg-white/5 transition"
+>
+  Operations View
+</Link>
+
             </div>
           </div>
 
@@ -63,12 +72,13 @@ function Home() {
 
       {/* ================= THINKING / ANALYSIS ================= */}
       <section className="relative overflow-hidden text-slate-800">
-        {/* MOVING SOFT BACKGROUND */}
-        <div className="
-          absolute inset-0
-          bg-gradient-to-br from-[#F4F7FB] via-[#EEF2FF] to-[#F4F7FB]
-          animate-gradient
-        " />
+        <div
+          className="
+            absolute inset-0
+            bg-gradient-to-br from-[#F4F7FB] via-[#EEF2FF] to-[#F4F7FB]
+            animate-gradient
+          "
+        />
         <div className="absolute -left-40 top-40 w-[500px] h-[500px] rounded-full bg-indigo-200/30 blur-3xl animate-gradient" />
 
         <div className="relative max-w-7xl mx-auto px-8 py-48 grid md:grid-cols-2 gap-24">
@@ -133,12 +143,13 @@ function Home() {
 
       {/* ================= EXECUTION / FLOW ================= */}
       <section className="relative overflow-hidden text-slate-800">
-        {/* MOVING OPERATIONAL BACKGROUND */}
-        <div className="
-          absolute inset-0
-          bg-gradient-to-br from-[#F9FBFA] via-[#ECFEFF] to-[#F9FBFA]
-          animate-gradient
-        " />
+        <div
+          className="
+            absolute inset-0
+            bg-gradient-to-br from-[#F9FBFA] via-[#ECFEFF] to-[#F9FBFA]
+            animate-gradient
+          "
+        />
         <div className="absolute right-[-200px] top-[200px] w-[600px] h-[600px] rounded-full bg-teal-200/20 blur-3xl animate-gradient" />
 
         <div className="relative max-w-7xl mx-auto px-8 py-48">
@@ -160,9 +171,7 @@ function Home() {
                   i % 2 === 1 ? "md:pl-32 animate-delay-2" : "animate-delay-1"
                 }`}
               >
-                <div className="text-teal-500 text-6xl font-light">
-                  {step}
-                </div>
+                <div className="text-teal-500 text-6xl font-light">{step}</div>
                 <div>
                   <h3 className="text-2xl font-semibold mb-4">{title}</h3>
                   <p className="text-lg text-slate-600 leading-relaxed max-w-md">
@@ -188,6 +197,7 @@ function Home() {
 
           <Link
             to="/report"
+            onClick={() => setRole("citizen")}
             className="inline-block px-10 py-4 rounded-full bg-teal-500 text-slate-900 font-medium hover:bg-teal-400 transition"
           >
             Start a Report

@@ -1,28 +1,20 @@
-export type IncidentType =
-  | "Accident"
-  | "Medical"
-  | "Fire"
-  | "Smog";
+export type Severity = "Low" | "Medium" | "Critical";
 
-export type IncidentSeverity =
-  | "Low"
-  | "Medium"
-  | "Critical";
-
-export type IncidentStatus =
+export type Status =
   | "Reported"
   | "Verified"
   | "Assigned"
   | "Resolved";
 
 export interface Incident {
-  id?: string;
-  type: IncidentType;
-  severity: IncidentSeverity;
-  status: IncidentStatus;
+  id: string;
+  type: string;
+  severity: Severity;
+  status: Status;
+  createdAt: any;
   location: {
     lat: number;
     lng: number;
   };
-  createdAt: Date;
+  sensorVerified?: boolean;
 }

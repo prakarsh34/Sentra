@@ -4,6 +4,7 @@ import Home from "./pages/Home";
 import Report from "./pages/Report";
 import Dashboard from "./pages/Dashboard";
 import MapView from "./pages/MapView";
+import OperationsView from "./pages/OperationsView";
 import { useRole } from "./context/RoleContext";
 
 function App() {
@@ -14,23 +15,49 @@ function App() {
       <Navbar />
 
       <Routes>
+        {/* PUBLIC */}
         <Route path="/" element={<Home />} />
 
-        {/* Citizen */}
-        {role === "citizen" && (
-          <Route path="/report" element={<Report />} />
-        )}
+        {/* CITIZEN */}
+        <Route
+          path="/report"
+          element={
+            role === "citizen" ? <Report /> : <Navigate to="/" replace />
+          }
+        />
 
-        {/* Responder */}
-        {role === "responder" && (
-          <>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/map" element={<MapView />} />
-          </>
-        )}
+        {/* RESPONDER */}
+        <Route
+          path="/operations"
+          element={
+            role === "responder" ? (
+              <OperationsView />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route
+          path="/dashboard"
+          element={
+            role === "responder" ? (
+              <Dashboard />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+
+        <Route
+          path="/map"
+          element={
+            role === "responder" ? <MapView /> : <Navigate to="/" replace />
+          }
+        />
+
+        {/* FALLBACK */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

@@ -17,9 +17,27 @@ interface Incident {
   sensorVerified?: boolean;
 }
 
+/* 🔹 Motivational quotes */
+const QUOTES = [
+  "Clarity saves time. Time saves lives.",
+  "Every calm decision makes a difference.",
+  "Respond with focus. Act with purpose.",
+  "Information becomes impact when understood.",
+  "Precision is the first step to safety.",
+];
+
 function Dashboard() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [quoteIndex, setQuoteIndex] = useState(0);
+
+  /* Rotate quotes */
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setQuoteIndex((prev) => (prev + 1) % QUOTES.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     return onSnapshot(collection(db, "incidents"), (snap) => {
@@ -45,95 +63,146 @@ function Dashboard() {
   const sorted = [...enriched].sort((a, b) => b.priority - a.priority);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <h1 className="text-3xl font-bold mb-6">
-        🧠 Explainable Emergency Dashboard
-      </h1>
+    <main className="min-h-screen bg-[#020617] text-slate-100 px-6 py-10">
 
-      <div className="bg-white rounded-xl shadow overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-4">Type</th>
-              <th className="p-4">Severity</th>
-              <th className="p-4">Status</th>
-              <th className="p-4">Priority</th>
-              <th className="p-4">Explain</th>
-              <th className="p-4">Actions</th>
-            </tr>
-          </thead>
+      {/* ================= HEADER ================= */}
+      <section className="max-w-7xl mx-auto mb-14">
+        <div className="relative rounded-3xl p-8 overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-black border border-white/10">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(20,184,166,0.15),transparent_60%)]" />
 
-          <tbody>
-            {sorted.map((i) => (
-              <>
-                <tr key={i.id} className="border-t hover:bg-gray-50">
-                  <td className="p-4 font-medium">{i.type}</td>
-                  <td className="p-4">{i.severity}</td>
-                  <td className="p-4">{i.status}</td>
-                  <td className="p-4 font-semibold text-purple-700">
-                    {i.priority}
-                  </td>
-                  <td className="p-4">
-                    <button
-                      onClick={() =>
-                        setExpandedId(expandedId === i.id ? null : i.id)
-                      }
-                      className="text-blue-600 hover:underline text-sm"
-                    >
-                      Why?
-                    </button>
-                  </td>
-                  <td className="p-4 flex gap-2">
-                    {!i.sensorVerified && i.type === "Smog" && (
-                      <button
-                        onClick={() => verifyViaSensor(i.id)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm"
-                      >
-                        Simulate IR
-                      </button>
-                    )}
+          <div className="relative">
+            <h1 className="text-3xl font-semibold mb-3 tracking-tight">
+              Emergency Operations Dashboard
+            </h1>
 
-                    {i.status !== "Resolved" && (
-                      <button
-                        onClick={() =>
-                          updateIncidentStatus(i.id, "Resolved")
-                        }
-                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
-                      >
-                        Resolve
-                      </button>
-                    )}
-                  </td>
-                </tr>
+            <p
+              key={quoteIndex}
+              className="text-sm italic text-slate-400 animate-fade-up"
+            >
+              “{QUOTES[quoteIndex]}”
+            </p>
+          </div>
+        </div>
+      </section>
 
-                {expandedId === i.id && (
-                  <tr className="bg-gray-50">
-                    <td colSpan={6} className="p-4">
-                      <ul className="list-disc ml-6 text-sm text-gray-700">
-                        {i.reasons.map((r, idx) => (
-                          <li key={idx}>{r}</li>
-                        ))}
-                      </ul>
-                    </td>
-                  </tr>
-                )}
-              </>
-            ))}
+      {/* ================= INCIDENT STREAM ================= */}
+      <section className="max-w-7xl mx-auto space-y-5">
+        {sorted.map((i) => (
+          <div
+            key={i.id}
+            className="
+              rounded-2xl border border-white/10
+              bg-white/5 backdrop-blur
+              px-6 py-5
+              transition-all duration-300
+              hover:bg-white/10 hover:scale-[1.01]
+            "
+          >
+            {/* TOP ROW */}
+            <div className="grid grid-cols-12 items-center gap-4">
+              {/* TYPE */}
+              <div className="col-span-2 font-medium tracking-wide">
+                {i.type}
+              </div>
 
-            {sorted.length === 0 && (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="p-6 text-center text-gray-500"
+              {/* SEVERITY */}
+              <div
+                className={`col-span-2 text-xs font-semibold uppercase tracking-wider px-3 py-1 rounded-full w-fit
+                  ${
+                    i.severity === "Critical"
+                      ? "bg-red-500/20 text-red-300"
+                      : i.severity === "Medium"
+                      ? "bg-yellow-500/20 text-yellow-300"
+                      : "bg-green-500/20 text-green-300"
+                  }`}
+              >
+                {i.severity}
+              </div>
+
+              {/* STATUS */}
+              <div className="col-span-2 text-slate-300 text-sm">
+                {i.status}
+              </div>
+
+              {/* PRIORITY */}
+              <div className="col-span-2 text-2xl font-semibold text-teal-400">
+                {i.priority}
+              </div>
+
+              {/* EXPLAIN */}
+              <div className="col-span-2">
+                <button
+                  onClick={() =>
+                    setExpandedId(expandedId === i.id ? null : i.id)
+                  }
+                  className="text-xs uppercase tracking-widest text-teal-300 hover:underline"
                 >
-                  No incidents available
-                </td>
-              </tr>
+                  Explain
+                </button>
+              </div>
+
+              {/* ACTIONS */}
+              <div className="col-span-2 flex gap-2 justify-end">
+                {!i.sensorVerified && i.type === "Smog" && (
+                  <button
+                    onClick={() => verifyViaSensor(i.id)}
+                    className="
+                      px-3 py-1 rounded-full text-xs
+                      bg-indigo-500/20 text-indigo-300
+                      border border-indigo-400/30
+                      hover:bg-indigo-500/30 transition
+                    "
+                  >
+                    Simulate IR
+                  </button>
+                )}
+
+                {i.status !== "Resolved" && (
+                  <button
+                    onClick={() =>
+                      updateIncidentStatus(i.id, "Resolved")
+                    }
+                    className="
+                      px-3 py-1 rounded-full text-xs
+                      bg-green-500/20 text-green-300
+                      border border-green-400/30
+                      hover:bg-green-500/30 transition
+                    "
+                  >
+                    Resolve
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* PRIORITY EXPLANATION */}
+            {expandedId === i.id && (
+              <div className="mt-6 pl-6 border-l border-teal-400/30 animate-fade-up">
+                <p className="text-[10px] uppercase tracking-widest text-teal-400 mb-3">
+                  Priority breakdown
+                </p>
+                <ul className="list-disc ml-5 text-sm text-slate-300 space-y-1">
+                  {i.reasons.map((r, idx) => (
+                    <li key={idx}>{r}</li>
+                  ))}
+                </ul>
+              </div>
             )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          </div>
+        ))}
+
+        {sorted.length === 0 && (
+          <div className="text-center py-24 text-slate-500 text-sm">
+            No incidents currently active
+          </div>
+        )}
+      </section>
+
+      {/* ================= FOOTNOTE ================= */}
+      <footer className="max-w-7xl mx-auto mt-20 text-xs text-slate-500">
+        * Sensor verification is simulated for demo purposes (IR / smog logic).
+      </footer>
+    </main>
   );
 }
 
