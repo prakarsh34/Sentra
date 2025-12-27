@@ -20,7 +20,7 @@ interface Incident {
   type: string;
   severity: "Low" | "Medium" | "Critical";
   status: string;
-  location: {
+  location?: {
     lat: number;
     lng: number;
   };
@@ -32,7 +32,7 @@ interface MapViewProps {
 }
 
 /* =====================
-   FIX LEAFLET ICON PATHS
+   LEAFLET ICON FIX
 ===================== */
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 
@@ -46,13 +46,13 @@ L.Icon.Default.mergeOptions({
 });
 
 /* =====================
-   MAP FOCUS CONTROLLER
+   AUTO FOCUS CONTROLLER
 ===================== */
 function MapFocus({ incident }: { incident?: Incident | null }) {
   const map = useMap();
 
   useEffect(() => {
-    if (!incident) return;
+    if (!incident || !incident.location) return;
 
     map.flyTo(
       [incident.location.lat, incident.location.lng],
@@ -65,6 +65,21 @@ function MapFocus({ incident }: { incident?: Incident | null }) {
 }
 
 /* =====================
+   HELPER — OFFSET MARKERS
+===================== */
+function offsetLatLng(
+  lat: number,
+  lng: number,
+  index: number
+): [number, number] {
+  const spread = 0.002;
+  return [
+    lat + (index % 3) * spread,
+    lng + Math.floor(index / 3) * spread,
+  ];
+}
+
+/* =====================
    COMPONENT
 ===================== */
 function MapView({ focusIncident }: MapViewProps) {
@@ -72,89 +87,116 @@ function MapView({ focusIncident }: MapViewProps) {
 
   useEffect(() => {
     return onSnapshot(collection(db, "incidents"), (snapshot) => {
-      const data = snapshot.docs.map((doc) => {
-        const d = doc.data() as Omit<Incident, "id">;
-        return { id: doc.id, ...d };
-      });
+      const data = snapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as Omit<Incident, "id">),
+        }))
+        // 🔥 REMOVE INCIDENTS WITHOUT LOCATION
+        .filter(
+          (i) =>
+            typeof i.location?.lat === "number" &&
+            typeof i.location?.lng === "number"
+        );
+
       setIncidents(data);
     });
   }, []);
 
   const center: LatLngExpression = [20.5937, 78.9629]; // India
 
-  return (
-    <div className="h-full w-full relative">
+ return (
+  <main className="min-h-screen bg-[#020617] text-slate-100">
+    {/* PAGE HEADER */}
+    <div className="max-w-7xl mx-auto px-6 pt-6 pb-4">
+      <h1 className="text-3xl font-semibold mb-1">
+        Live Incident Map
+      </h1>
+      <p className="text-slate-400 text-sm">
+        Real-time geographic view of all reported incidents
+      </p>
+    </div>
 
-      <MapContainer
-        center={center}
-        zoom={5}
-        className="h-full w-full"
+    {/* MAP WRAPPER — FIXED HEIGHT */}
+    <div className="w-full px-6 pb-6">
+      <div
+        className="
+          relative
+          w-full
+          rounded-2xl
+          overflow-hidden
+          border border-white/10
+        "
+        style={{
+          height: "calc(100vh - 160px)", // 🔥 KEY FIX
+        }}
       >
-        {/* DARK MAP */}
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution="© OpenStreetMap, © CARTO"
-        />
+        <MapContainer
+          center={center}
+          zoom={5}
+          className="h-full w-full"
+        >
+          <TileLayer
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            attribution="© OpenStreetMap, © CARTO"
+          />
 
-        {/* AUTO FOCUS */}
-        <MapFocus incident={focusIncident} />
+          <MapFocus incident={focusIncident} />
 
-        {incidents.map((i) => {
-          const position: LatLngExpression = [
-            i.location.lat,
-            i.location.lng,
-          ];
+          {incidents.map((i, idx) => {
+            if (!i.location) return null;
 
-          return (
-            <div key={i.id}>
-              {/* AWARENESS RING */}
-              <Circle
-                center={position}
-                radius={i.severity === "Critical" ? 12000 : 8000}
-                pathOptions={{
-                  color: severityColor(i.severity),
-                  fillColor: severityColor(i.severity),
-                  fillOpacity: 0.15,
-                  weight: 1,
-                }}
-              />
+            const [lat, lng] = offsetLatLng(
+              i.location.lat,
+              i.location.lng,
+              idx
+            );
 
-              {/* MARKER */}
-              <Marker
-                position={position}
-                icon={severityIcon(i.severity)}
-              >
-                <Popup>
-                  <div className="text-sm">
+            return (
+              <div key={i.id}>
+                <Circle
+                  center={[lat, lng]}
+                  radius={i.severity === "Critical" ? 12000 : 8000}
+                  pathOptions={{
+                    color: severityColor(i.severity),
+                    fillColor: severityColor(i.severity),
+                    fillOpacity: 0.15,
+                    weight: 1,
+                  }}
+                />
+
+                <Marker
+                  position={[lat, lng]}
+                  icon={severityIcon(i.severity)}
+                >
+                  <Popup>
                     <strong>{i.type}</strong>
                     <br />
                     Severity: {i.severity}
                     <br />
                     Status: {i.status}
-                    <br />
-                    {i.sensorVerified
-                      ? "Sensor verified (IR)"
-                      : "Awaiting sensor verification"}
-                  </div>
-                </Popup>
-              </Marker>
-            </div>
-          );
-        })}
-      </MapContainer>
+                  </Popup>
+                </Marker>
+              </div>
+            );
+          })}
+        </MapContainer>
 
-      {/* LEGEND */}
-      <div className="absolute bottom-6 left-6 bg-black/70 backdrop-blur border border-white/10 rounded-xl p-4 text-xs space-y-2 text-slate-100">
-        <p className="uppercase tracking-widest text-slate-400">
-          Legend
-        </p>
-        <LegendItem color="bg-red-500" label="Critical" />
-        <LegendItem color="bg-yellow-400" label="Medium" />
-        <LegendItem color="bg-green-500" label="Low" />
+        {/* LEGEND */}
+        <div className="absolute bottom-6 left-6 bg-black/70 backdrop-blur border border-white/10 rounded-xl p-4 text-xs space-y-2 text-slate-100">
+          <p className="uppercase tracking-widest text-slate-400">
+            Legend
+          </p>
+          <LegendItem color="bg-red-500" label="Critical" />
+          <LegendItem color="bg-yellow-400" label="Medium" />
+          <LegendItem color="bg-green-500" label="Low" />
+        </div>
       </div>
     </div>
-  );
+  </main>
+);
 }
+
 
 /* =====================
    HELPERS

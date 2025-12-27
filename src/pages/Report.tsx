@@ -30,7 +30,6 @@ function Report() {
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
           },
-          createdAt: new Date(),
         });
 
         setType("");
@@ -48,13 +47,14 @@ function Report() {
 
   return (
     <main className="min-h-screen bg-[#020617] flex items-center justify-center px-6">
-
-      <div className="
-        w-full max-w-md
-        bg-white/5 backdrop-blur
-        border border-white/10
-        rounded-2xl p-8
-      ">
+      <div
+        className="
+          w-full max-w-md
+          bg-white/5 backdrop-blur
+          border border-white/10
+          rounded-2xl p-8
+        "
+      >
         {/* HEADER */}
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-slate-100 mb-2">
@@ -133,7 +133,6 @@ function Report() {
           Your location is used only to help responders reach you faster.
         </p>
       </div>
-
     </main>
   );
 }

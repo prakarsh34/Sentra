@@ -1,5 +1,20 @@
 import { db } from "./firebase";
-import { collection, addDoc, doc, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  doc,
+  updateDoc,
+  serverTimestamp,
+} from "firebase/firestore";
+
+/* =========================
+   TYPES
+========================= */
+export type Status =
+  | "Reported"
+  | "Verified"
+  | "Assigned"
+  | "Resolved";
 
 /* =========================
    CREATE INCIDENT
@@ -7,17 +22,17 @@ import { collection, addDoc, doc, updateDoc } from "firebase/firestore";
 export const createIncident = async (incident: {
   type: string;
   severity: "Low" | "Medium" | "Critical";
-  status: "Reported" | "Verified" | "Assigned" | "Resolved";
+  status: Status;
   location: {
     lat: number;
     lng: number;
   };
-  createdAt: Date;
   sensorVerified?: boolean;
   verificationSource?: "IR_CAMERA" | "MANUAL";
 }) => {
   await addDoc(collection(db, "incidents"), {
     ...incident,
+    createdAt: serverTimestamp(), // ✅ CRITICAL FIX
     sensorVerified: false,
   });
 };
@@ -27,7 +42,7 @@ export const createIncident = async (incident: {
 ========================= */
 export const updateIncidentStatus = async (
   id: string,
-  status: "Reported" | "Verified" | "Assigned" | "Resolved"
+  status: Status
 ) => {
   await updateDoc(doc(db, "incidents", id), { status });
 };
