@@ -1,65 +1,42 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "./context/AuthContext";
 import Navbar from "./components/Navbar";
+
 import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Report from "./pages/Report";
 import Dashboard from "./pages/Dashboard";
+import MapView from "./pages/MapView";
 import OperationsView from "./pages/OperationsView";
-import MapPage from "./pages/MapView";
-import { useRole } from "./context/RoleContext";
 
 function App() {
-  const { role } = useRole();
+  const { user, role, loading } = useAuth();
+  if (loading) return null;
 
   return (
-    <BrowserRouter>
+    <>
       <Navbar />
-
       <Routes>
-        {/* PUBLIC */}
         <Route path="/" element={<Home />} />
+        <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
+        <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
+        <Route path="/operations" element={<OperationsView />} />
 
-        {/* CITIZEN */}
-        <Route
-          path="/report"
-          element={
-            role === "citizen" ? <Report /> : <Navigate to="/" replace />
-          }
-        />
+        {user && role === "citizen" && (
+          <Route path="/report" element={<Report />} />
+        )}
 
-        {/* RESPONDER */}
-        <Route
-          path="/operations"
-          element={
-            role === "responder" ? (
-              <OperationsView />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
+        {user && role === "responder" && (
+          <>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/map" element={<MapView />} />
+          </>
+        )}
 
-        <Route
-          path="/dashboard"
-          element={
-            role === "responder" ? (
-              <Dashboard />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-
-        <Route
-          path="/map"
-          element={
-            role === "responder" ? <MapPage /> : <Navigate to="/" replace />
-          }
-        />
-
-        {/* FALLBACK */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-    </BrowserRouter>
+    </>
   );
 }
 

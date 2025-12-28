@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -7,8 +7,10 @@ import {
   Circle,
   useMap,
 } from "react-leaflet";
-import type { LatLngExpression } from "leaflet";
 import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import "leaflet.heat";
+
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../services/firebase";
 
@@ -19,173 +21,207 @@ interface Incident {
   id: string;
   type: string;
   severity: "Low" | "Medium" | "Critical";
-  status: string;
-  location?: {
-    lat: number;
-    lng: number;
-  };
-  sensorVerified?: boolean;
-}
-
-interface MapViewProps {
-  focusIncident?: Incident | null;
+  status: "Reported" | "Verified" | "Assigned" | "Resolved";
+  location?: { lat: number; lng: number };
 }
 
 /* =====================
-   LEAFLET ICON FIX
+   MAP CONTROLLER
 ===================== */
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
-
-/* =====================
-   AUTO FOCUS
-===================== */
-function MapFocus({ incident }: { incident?: Incident | null }) {
+function MapController({ focus }: { focus?: Incident | null }) {
   const map = useMap();
 
   useEffect(() => {
-    if (!incident || !incident.location) return;
+    requestAnimationFrame(() => {
+      map.invalidateSize();
+    });
+  }, [map]);
 
+  useEffect(() => {
+    if (!focus?.location) return;
     map.flyTo(
-      [incident.location.lat, incident.location.lng],
-      11,
-      { duration: 1.2 }
+      [focus.location.lat, focus.location.lng],
+      14,
+      { duration: 1.5 }
     );
-  }, [incident, map]);
+  }, [focus, map]);
 
   return null;
 }
 
 /* =====================
-   COMPONENT
+   HEATMAP LAYER
 ===================== */
-function MapView({ focusIncident }: MapViewProps) {
-  const [incidents, setIncidents] = useState<Incident[]>([]);
-
-  /* 🔥 FILTER STATE */
-  const [filters, setFilters] = useState({
-    Critical: true,
-    Medium: true,
-    Low: true,
-    verifiedOnly: false,
-  });
+function HeatmapLayer({
+  points,
+}: {
+  points: [number, number, number][];
+}) {
+  const map = useMap();
 
   useEffect(() => {
-    return onSnapshot(collection(db, "incidents"), (snapshot) => {
-      const data = snapshot.docs
-        .map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as Omit<Incident, "id">),
-        }))
-        .filter(
-          (i) =>
-            typeof i.location?.lat === "number" &&
-            typeof i.location?.lng === "number"
-        );
+    if (!points.length) return;
 
-      setIncidents(data);
-    });
-  }, []);
+    const heat = (L as any).heatLayer(points, {
+      radius: 30,
+      blur: 25,
+      maxZoom: 10,
+      gradient: {
+        0.2: "#22c55e",
+        0.5: "#facc15",
+        0.9: "#ef4444",
+      },
+    }).addTo(map);
 
-  /* 🔥 APPLY FILTERS */
-  const visibleIncidents = incidents.filter((i) => {
-    if (!filters[i.severity]) return false;
-    if (filters.verifiedOnly && !i.sensorVerified) return false;
-    return true;
+    return () => {
+      map.removeLayer(heat);
+    };
+  }, [map, points]);
+
+  return null;
+}
+
+/* =====================
+   HELPERS
+===================== */
+const severityColor = (s: Incident["severity"]) =>
+  s === "Critical" ? "#ef4444" : s === "Medium" ? "#facc15" : "#22c55e";
+
+const markerIcon = (severity: Incident["severity"]) =>
+  new L.Icon({
+    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${
+      severity === "Critical"
+        ? "red"
+        : severity === "Medium"
+        ? "orange"
+        : "green"
+    }.png`,
+    shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
   });
 
-  const center: LatLngExpression = [20.5937, 78.9629];
+/* =====================
+   MAIN COMPONENT
+===================== */
+export default function MapView({
+  focusIncident,
+}: {
+  focusIncident?: Incident | null;
+}) {
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  /* =====================
+     FIREBASE REALTIME
+  ===================== */
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "incidents"), (snap) => {
+      const data = snap.docs
+        .map((d) => ({
+          id: d.id,
+          ...(d.data() as Omit<Incident, "id">),
+        }))
+        .filter((i) => i.location?.lat && i.location?.lng);
+
+      setIncidents(data);
+      setLoading(false);
+    });
+
+    return () => unsub();
+  }, []);
+
+  /* =====================
+     HEATMAP DATA (FIXED)
+  ===================== */
+  const heatPoints = useMemo<[number, number, number][]>(
+    () =>
+      incidents.map((i) => {
+        const intensity =
+          i.severity === "Critical"
+            ? 1
+            : i.severity === "Medium"
+            ? 0.7
+            : 0.4;
+
+        return [
+          i.location!.lat,
+          i.location!.lng,
+          intensity,
+        ] as [number, number, number];
+      }),
+    [incidents]
+  );
 
   return (
     <main className="min-h-screen bg-[#020617] text-slate-100">
       {/* HEADER */}
-      <div className="max-w-7xl mx-auto px-6 pt-6 pb-4">
-        <h1 className="text-3xl font-semibold">Live Incident Map</h1>
-        <p className="text-slate-400 text-sm">
-          Real-time geographic awareness for responders
+      <div className="px-6 py-6 max-w-7xl mx-auto">
+        <h1 className="text-2xl font-bold">Spatial Intelligence</h1>
+        <p className="text-xs uppercase tracking-widest text-slate-400">
+          Live emergency awareness map
         </p>
       </div>
 
       {/* MAP */}
-      <div className="w-full px-6 pb-6">
-        <div
-          className="relative w-full rounded-2xl overflow-hidden border border-white/10"
-          style={{ height: "calc(100vh - 160px)" }}
-        >
-          {/* 🔥 FILTER CONTROLS */}
-          <div className="absolute top-4 right-4 z-[1000] bg-black/70 backdrop-blur rounded-xl p-3 space-y-2 text-xs">
-            {(["Critical", "Medium", "Low"] as const).map((sev) => (
-              <label key={sev} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={filters[sev]}
-                  onChange={() =>
-                    setFilters((f) => ({ ...f, [sev]: !f[sev] }))
-                  }
-                />
-                <span>{sev}</span>
-              </label>
-            ))}
+      <div className="px-6 pb-6">
+        <div className="relative h-[calc(100vh-140px)] rounded-3xl overflow-hidden border border-white/10 bg-slate-900/60 shadow-2xl">
+          {loading && (
+            <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-slate-950/80">
+              <div className="w-12 h-12 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin" />
+            </div>
+          )}
 
-            <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-white/10">
-              <input
-                type="checkbox"
-                checked={filters.verifiedOnly}
-                onChange={() =>
-                  setFilters((f) => ({
-                    ...f,
-                    verifiedOnly: !f.verifiedOnly,
-                  }))
-                }
-              />
-              <span>Verified only</span>
-            </label>
-          </div>
-
-          <MapContainer center={center} zoom={5} className="h-full w-full">
+          <MapContainer
+            center={[20.5937, 78.9629]}
+            zoom={5}
+            className="absolute inset-0"
+            zoomControl={false}
+          >
             <TileLayer
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              attribution="© OpenStreetMap, © CARTO"
+              attribution="&copy; CARTO"
             />
 
-            <MapFocus incident={focusIncident} />
+            <MapController focus={focusIncident} />
+            <HeatmapLayer points={heatPoints} />
 
-            {visibleIncidents.map((i) => (
+            {incidents.map((i) => (
               <div key={i.id}>
-                <Circle
-                  center={[i.location!.lat, i.location!.lng]}
-                  radius={i.severity === "Critical" ? 12000 : 8000}
-                  pathOptions={{
-                    color: severityColor(i.severity),
-                    fillColor: severityColor(i.severity),
-                    fillOpacity: 0.15,
-                    weight: 1,
-                  }}
-                />
+                {/* CRITICAL PULSE */}
+                {i.severity === "Critical" && (
+                  <Circle
+                    center={[i.location!.lat, i.location!.lng]}
+                    radius={12000}
+                    pathOptions={{
+                      color: "#ef4444",
+                      fillColor: "#ef4444",
+                      fillOpacity: 0.15,
+                      weight: 1,
+                      className: "pulse-ring",
+                    }}
+                  />
+                )}
 
                 <Marker
                   position={[i.location!.lat, i.location!.lng]}
-                  icon={severityIcon(i.severity)}
+                  icon={markerIcon(i.severity)}
+                  opacity={i.status === "Resolved" ? 0.4 : 1}
                 >
                   <Popup>
-                    <strong>{i.type}</strong>
-                    <br />
-                    Severity: {i.severity}
-                    <br />
-                    Status: {i.status}
-                    {i.sensorVerified && (
-                      <div className="text-indigo-400 text-xs">
-                        ✔ Sensor verified
-                      </div>
-                    )}
+                    <div className="space-y-1">
+                      <h3 className="font-bold">{i.type}</h3>
+                      <p className="text-xs text-slate-500">{i.status}</p>
+                      <span
+                        className="inline-block px-2 py-0.5 text-xs font-bold rounded"
+                        style={{
+                          background: severityColor(i.severity) + "33",
+                          color: severityColor(i.severity),
+                        }}
+                      >
+                        {i.severity}
+                      </span>
+                    </div>
                   </Popup>
                 </Marker>
               </div>
@@ -193,32 +229,18 @@ function MapView({ focusIncident }: MapViewProps) {
           </MapContainer>
         </div>
       </div>
+
+      {/* ANIMATION */}
+      <style>{`
+        .pulse-ring {
+          animation: pulse 2.5s infinite;
+        }
+        @keyframes pulse {
+          0% { opacity: 0.8; }
+          70% { opacity: 0; }
+          100% { opacity: 0; }
+        }
+      `}</style>
     </main>
   );
 }
-
-/* =====================
-   HELPERS
-===================== */
-function severityColor(sev: Incident["severity"]) {
-  if (sev === "Critical") return "#ef4444";
-  if (sev === "Medium") return "#facc15";
-  return "#22c55e";
-}
-
-function severityIcon(sev: Incident["severity"]) {
-  const color =
-    sev === "Critical" ? "red" : sev === "Medium" ? "orange" : "green";
-
-  return new L.Icon({
-    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
-    shadowUrl:
-      "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
-  });
-}
-
-export default MapView;

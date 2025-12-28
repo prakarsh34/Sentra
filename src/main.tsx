@@ -1,14 +1,16 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
+import App from "./App.tsx"; // ADD THE .tsx
+import { BrowserRouter } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext.tsx"; // ADD THE .tsx
 import "./index.css";
-import "leaflet/dist/leaflet.css";
-import { RoleProvider } from "./context/RoleContext";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <RoleProvider>
-      <App />
-    </RoleProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </BrowserRouter>
   </React.StrictMode>
 );
