@@ -11,7 +11,7 @@ function Home() {
       <section className="min-h-screen relative flex items-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-slate-900 to-black animate-gradient" />
         <div className="absolute right-[-25%] top-[-15%] w-[900px] h-[900px] rounded-full bg-white shadow-[inset_0_0_120px_rgba(0,0,0,0.25)]" />
-        <div className="absolute right-[-30%] top-[-20%] w-[1100px] h-[1100px] rounded-full bg-teal-400/20 blur-3xl animate-gradient" />
+        <div className="absolute right-[-30%] top-[-20%] w-[1100px] h-[1100px] rounded-full bg-emerald-700 blur-3xl animate-gradient" />
 
         <div className="relative z-10 max-w-7xl mx-auto px-8 grid md:grid-cols-2 gap-20 items-center">
           <div>
@@ -19,11 +19,11 @@ function Home() {
               Emergency Intelligence Platform
             </p>
 
-            <h1 className="text-5xl md:text-6xl font-semibold leading-tight mb-10 animate-text-in animate-delay-1">
+            <h1 className="text-5xl md:text-6xl font-semibold leading-tight mb-10 text-white animate-text-in animate-delay-1">
               Calm decisions <br /> emerge from clarity
             </h1>
 
-            <p className="text-lg text-slate-300 leading-relaxed mb-10 max-w-xl animate-text-in animate-delay-2">
+            <p className="text-lg text-white leading-relaxed mb-10 max-w-xl animate-text-in animate-delay-2">
               Sentra is a real-time emergency intelligence system designed to
               reduce noise, verify signals, and guide responders toward what
               truly matters.
