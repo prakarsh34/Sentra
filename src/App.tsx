@@ -3,8 +3,8 @@ import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Report from "./pages/Report";
 import Dashboard from "./pages/Dashboard";
-import MapView from "./pages/MapView";
 import OperationsView from "./pages/OperationsView";
+import MapPage from "./pages/MapView";
 import { useRole } from "./context/RoleContext";
 
 function App() {
@@ -52,7 +52,7 @@ function App() {
         <Route
           path="/map"
           element={
-            role === "responder" ? <MapView /> : <Navigate to="/" replace />
+            role === "responder" ? <MapPage /> : <Navigate to="/" replace />
           }
         />
 

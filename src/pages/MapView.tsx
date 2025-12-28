@@ -46,7 +46,7 @@ L.Icon.Default.mergeOptions({
 });
 
 /* =====================
-   AUTO FOCUS CONTROLLER
+   AUTO FOCUS
 ===================== */
 function MapFocus({ incident }: { incident?: Incident | null }) {
   const map = useMap();
@@ -65,25 +65,18 @@ function MapFocus({ incident }: { incident?: Incident | null }) {
 }
 
 /* =====================
-   HELPER — OFFSET MARKERS
-===================== */
-function offsetLatLng(
-  lat: number,
-  lng: number,
-  index: number
-): [number, number] {
-  const spread = 0.002;
-  return [
-    lat + (index % 3) * spread,
-    lng + Math.floor(index / 3) * spread,
-  ];
-}
-
-/* =====================
    COMPONENT
 ===================== */
 function MapView({ focusIncident }: MapViewProps) {
   const [incidents, setIncidents] = useState<Incident[]>([]);
+
+  /* 🔥 FILTER STATE */
+  const [filters, setFilters] = useState({
+    Critical: true,
+    Medium: true,
+    Low: true,
+    verifiedOnly: false,
+  });
 
   useEffect(() => {
     return onSnapshot(collection(db, "incidents"), (snapshot) => {
@@ -92,7 +85,6 @@ function MapView({ focusIncident }: MapViewProps) {
           id: doc.id,
           ...(doc.data() as Omit<Incident, "id">),
         }))
-        // 🔥 REMOVE INCIDENTS WITHOUT LOCATION
         .filter(
           (i) =>
             typeof i.location?.lat === "number" &&
@@ -103,59 +95,73 @@ function MapView({ focusIncident }: MapViewProps) {
     });
   }, []);
 
-  const center: LatLngExpression = [20.5937, 78.9629]; // India
+  /* 🔥 APPLY FILTERS */
+  const visibleIncidents = incidents.filter((i) => {
+    if (!filters[i.severity]) return false;
+    if (filters.verifiedOnly && !i.sensorVerified) return false;
+    return true;
+  });
 
- return (
-  <main className="min-h-screen bg-[#020617] text-slate-100">
-    {/* PAGE HEADER */}
-    <div className="max-w-7xl mx-auto px-6 pt-6 pb-4">
-      <h1 className="text-3xl font-semibold mb-1">
-        Live Incident Map
-      </h1>
-      <p className="text-slate-400 text-sm">
-        Real-time geographic view of all reported incidents
-      </p>
-    </div>
+  const center: LatLngExpression = [20.5937, 78.9629];
 
-    {/* MAP WRAPPER — FIXED HEIGHT */}
-    <div className="w-full px-6 pb-6">
-      <div
-        className="
-          relative
-          w-full
-          rounded-2xl
-          overflow-hidden
-          border border-white/10
-        "
-        style={{
-          height: "calc(100vh - 160px)", // 🔥 KEY FIX
-        }}
-      >
-        <MapContainer
-          center={center}
-          zoom={5}
-          className="h-full w-full"
+  return (
+    <main className="min-h-screen bg-[#020617] text-slate-100">
+      {/* HEADER */}
+      <div className="max-w-7xl mx-auto px-6 pt-6 pb-4">
+        <h1 className="text-3xl font-semibold">Live Incident Map</h1>
+        <p className="text-slate-400 text-sm">
+          Real-time geographic awareness for responders
+        </p>
+      </div>
+
+      {/* MAP */}
+      <div className="w-full px-6 pb-6">
+        <div
+          className="relative w-full rounded-2xl overflow-hidden border border-white/10"
+          style={{ height: "calc(100vh - 160px)" }}
         >
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            attribution="© OpenStreetMap, © CARTO"
-          />
+          {/* 🔥 FILTER CONTROLS */}
+          <div className="absolute top-4 right-4 z-[1000] bg-black/70 backdrop-blur rounded-xl p-3 space-y-2 text-xs">
+            {(["Critical", "Medium", "Low"] as const).map((sev) => (
+              <label key={sev} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filters[sev]}
+                  onChange={() =>
+                    setFilters((f) => ({ ...f, [sev]: !f[sev] }))
+                  }
+                />
+                <span>{sev}</span>
+              </label>
+            ))}
 
-          <MapFocus incident={focusIncident} />
+            <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-white/10">
+              <input
+                type="checkbox"
+                checked={filters.verifiedOnly}
+                onChange={() =>
+                  setFilters((f) => ({
+                    ...f,
+                    verifiedOnly: !f.verifiedOnly,
+                  }))
+                }
+              />
+              <span>Verified only</span>
+            </label>
+          </div>
 
-          {incidents.map((i, idx) => {
-            if (!i.location) return null;
+          <MapContainer center={center} zoom={5} className="h-full w-full">
+            <TileLayer
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              attribution="© OpenStreetMap, © CARTO"
+            />
 
-            const [lat, lng] = offsetLatLng(
-              i.location.lat,
-              i.location.lng,
-              idx
-            );
+            <MapFocus incident={focusIncident} />
 
-            return (
+            {visibleIncidents.map((i) => (
               <div key={i.id}>
                 <Circle
-                  center={[lat, lng]}
+                  center={[i.location!.lat, i.location!.lng]}
                   radius={i.severity === "Critical" ? 12000 : 8000}
                   pathOptions={{
                     color: severityColor(i.severity),
@@ -166,7 +172,7 @@ function MapView({ focusIncident }: MapViewProps) {
                 />
 
                 <Marker
-                  position={[lat, lng]}
+                  position={[i.location!.lat, i.location!.lng]}
                   icon={severityIcon(i.severity)}
                 >
                   <Popup>
@@ -175,45 +181,34 @@ function MapView({ focusIncident }: MapViewProps) {
                     Severity: {i.severity}
                     <br />
                     Status: {i.status}
+                    {i.sensorVerified && (
+                      <div className="text-indigo-400 text-xs">
+                        ✔ Sensor verified
+                      </div>
+                    )}
                   </Popup>
                 </Marker>
               </div>
-            );
-          })}
-        </MapContainer>
-
-        {/* LEGEND */}
-        <div className="absolute bottom-6 left-6 bg-black/70 backdrop-blur border border-white/10 rounded-xl p-4 text-xs space-y-2 text-slate-100">
-          <p className="uppercase tracking-widest text-slate-400">
-            Legend
-          </p>
-          <LegendItem color="bg-red-500" label="Critical" />
-          <LegendItem color="bg-yellow-400" label="Medium" />
-          <LegendItem color="bg-green-500" label="Low" />
+            ))}
+          </MapContainer>
         </div>
       </div>
-    </div>
-  </main>
-);
+    </main>
+  );
 }
-
 
 /* =====================
    HELPERS
 ===================== */
-function severityColor(severity: Incident["severity"]) {
-  if (severity === "Critical") return "#ef4444";
-  if (severity === "Medium") return "#facc15";
+function severityColor(sev: Incident["severity"]) {
+  if (sev === "Critical") return "#ef4444";
+  if (sev === "Medium") return "#facc15";
   return "#22c55e";
 }
 
-function severityIcon(severity: Incident["severity"]) {
+function severityIcon(sev: Incident["severity"]) {
   const color =
-    severity === "Critical"
-      ? "red"
-      : severity === "Medium"
-      ? "orange"
-      : "green";
+    sev === "Critical" ? "red" : sev === "Medium" ? "orange" : "green";
 
   return new L.Icon({
     iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
@@ -224,21 +219,6 @@ function severityIcon(severity: Incident["severity"]) {
     popupAnchor: [1, -34],
     shadowSize: [41, 41],
   });
-}
-
-function LegendItem({
-  color,
-  label,
-}: {
-  color: string;
-  label: string;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className={`w-3 h-3 rounded-full ${color}`} />
-      <span>{label}</span>
-    </div>
-  );
 }
 
 export default MapView;
