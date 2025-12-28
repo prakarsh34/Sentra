@@ -3,7 +3,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  type User, // ADD 'type' keyword here
+  type User,
 } from "firebase/auth";
 import {
   doc,
@@ -13,31 +13,43 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 
-// Export this as a type for other files to use correctly
+// Export this as a type for other files
 export type UserRole = "citizen" | "responder";
 
 /* =========================
-   REGISTER
+   REGISTER (FIXED)
 ========================= */
 export const registerUser = async (
   email: string,
   password: string,
   role: UserRole
 ): Promise<User> => {
+  // 1️⃣ Create Auth user (this is the critical success step)
   const cred = await createUserWithEmailAndPassword(
     auth,
     email,
     password
   );
 
-  // Save role in Firestore
-  await setDoc(doc(db, "users", cred.user.uid), {
-    email,
-    role,
-    createdAt: serverTimestamp(),
-  });
+  const user = cred.user;
 
-  return cred.user;
+  // 2️⃣ Save role in Firestore (NON-BLOCKING)
+  try {
+    await setDoc(doc(db, "users", user.uid), {
+      email,
+      role,
+      createdAt: serverTimestamp(),
+    });
+  } catch (err) {
+    // 🔴 IMPORTANT: Do NOT throw here
+    console.error(
+      "⚠️ User created but Firestore role save failed:",
+      err
+    );
+  }
+
+  // 3️⃣ Always return user if Auth succeeded
+  return user;
 };
 
 /* =========================
