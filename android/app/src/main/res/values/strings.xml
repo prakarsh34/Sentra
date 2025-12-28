@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Sentra</string>
+    <string name="title_activity_main">Sentra</string>
+    <string name="package_name">com.kaushik.sentra</string>
+    <string name="custom_url_scheme">com.kaushik.sentra</string>
+</resources>
