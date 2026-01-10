@@ -7,29 +7,43 @@ import {
   arrayUnion,
   increment,
   getDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 
-export type Status =
-  | "Reported"
-  | "Verified"
-  | "Assigned"
-  | "Resolved";
+import type { Incident, Status } from "../types/Incident";
 
 /* =====================
    CREATE INCIDENT
 ===================== */
-export const createIncident = async (incident: any) => {
+export const createIncident = async (
+  incident: Omit<
+    Incident,
+    | "id"
+    | "status"
+    | "createdAt"
+    | "sensorVerified"
+    | "confidence"
+  >
+) => {
   await addDoc(collection(db, "incidents"), {
     ...incident,
-    status: "Reported",
-    crowdVerifyCount: 0,     // ✅ FIXED
-    crowdVerifiedBy: [],     // ✅ FIXED
+
+    // System-controlled fields
+    status: "Reported" as Status,
+    createdAt: serverTimestamp(),
+
+    // Verification logic
+    crowdVerifyCount: 0,
+    crowdVerifiedBy: [],
     sensorVerified: false,
+
+    // Initial confidence (future AI-ready)
+    confidence: 40,
   });
 };
 
 /* =====================
-   CROWD VERIFY (FIXED)
+   CROWD VERIFY INCIDENT
 ===================== */
 export const crowdVerifyIncident = async (
   id: string,
@@ -42,16 +56,21 @@ export const crowdVerifyIncident = async (
 
   const data = snap.data();
 
-  // 🛑 Prevent same user/session verifying twice
+  // 🛑 Prevent duplicate verification
   if (data.crowdVerifiedBy?.includes(userId)) {
-    console.warn("Already verified by this session");
+    console.warn("Already verified by this user/session");
     return;
   }
 
   await updateDoc(ref, {
-    crowdVerifyCount: increment(1),          // ✅ FIXED
-    crowdVerifiedBy: arrayUnion(userId),     // ✅ FIXED
-    status: "Verified",                      // Optional escalation
+    crowdVerifyCount: increment(1),
+    crowdVerifiedBy: arrayUnion(userId),
+
+    // Soft escalation
+    status: "Verified" as Status,
+
+    // Increase confidence gradually
+    confidence: increment(10),
   });
 };
 
@@ -61,7 +80,8 @@ export const crowdVerifyIncident = async (
 export const verifyViaSensor = async (id: string) => {
   await updateDoc(doc(db, "incidents", id), {
     sensorVerified: true,
-    status: "Verified",
+    status: "Verified" as Status,
+    confidence: increment(25),
   });
 };
 
